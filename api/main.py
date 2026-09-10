@@ -1,6 +1,8 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
+import os
 import re
+from uuid import uuid4
 
 import cv2
 import numpy as np
@@ -29,6 +31,7 @@ MONTHS = {
 app = FastAPI(title="Food Inspector Scanner API", version="0.1.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 ocr = None
+inspection_memory = []
 
 
 def get_ocr():
@@ -98,6 +101,37 @@ def date_status(date_texts):
     }
 
 
+async def save_inspection(record):
+    inspection_memory.insert(0, record)
+    del inspection_memory[100:]
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not supabase_key:
+        return
+    async with httpx.AsyncClient(timeout=8) as client:
+        response = await client.post(
+            f"{supabase_url.rstrip('/')}/rest/v1/inspections",
+            headers={"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}", "Prefer": "return=minimal"},
+            json=record,
+        )
+        response.raise_for_status()
+
+
+async def load_inspections(limit=100):
+    supabase_url = os.getenv("SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not supabase_key:
+        return inspection_memory[:limit]
+    async with httpx.AsyncClient(timeout=8) as client:
+        response = await client.get(
+            f"{supabase_url.rstrip('/')}/rest/v1/inspections",
+            headers={"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"},
+            params={"select": "*", "order": "created_at.desc", "limit": limit},
+        )
+        response.raise_for_status()
+        return response.json()
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "food-inspector-scanner"}
@@ -127,12 +161,36 @@ async def scan(image: UploadFile = File(...)):
     date_texts = DATE_PATTERN.findall(text)
     result = date_status(date_texts)
     result.update({
+        "id": str(uuid4()),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "filename": image.filename,
         "ocr_text": lines,
         "barcodes": find_barcodes(decoded),
         "date_candidates": date_texts,
     })
+    try:
+        await save_inspection(result)
+    except httpx.HTTPError:
+        result["storage_warning"] = "Scan completed, but cloud history could not be saved."
     return result
+
+
+@app.get("/inspections")
+async def inspections(limit: int = 100):
+    return {"items": await load_inspections(max(1, min(limit, 100)))}
+
+
+@app.get("/inspections/{inspection_id}/report")
+async def inspection_report(inspection_id: str):
+    records = await load_inspections(100)
+    record = next((item for item in records if item.get("id") == inspection_id), None)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Inspection not found")
+    return {
+        "document_type": "Food inspection report",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "inspection": record,
+    }
 
 
 @app.get("/products/{barcode}")

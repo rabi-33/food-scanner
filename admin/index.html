@@ -1,6 +1,41 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Food Inspector Admin</title>
-<style>body{margin:0;background:#17212b;color:#f4f1de;font:16px system-ui,sans-serif}main{max-width:760px;margin:0 auto;padding:48px 24px}h1{font-size:38px;margin:8px 0 32px}.eyebrow{color:#e9c46a;letter-spacing:2px;font-size:12px;font-weight:700}label{display:block;color:#bdc7cf;margin:18px 0 8px}input,button{box-sizing:border-box;width:100%;min-height:48px;border-radius:8px;border:1px solid #526574;padding:12px;font-size:16px}input{background:#263644;color:#fff}button{margin-top:22px;background:#e9c46a;border:0;color:#17212b;font-weight:700;cursor:pointer}.panel{margin-top:28px;padding:20px;background:#263644;border-left:4px solid #e9c46a;white-space:pre-wrap;overflow:auto}.fresh{color:#70c1b3}.expired{color:#e76f51}</style></head>
-<body><main><div class="eyebrow">FOOD INSPECTOR</div><h1>Scan review desk</h1><label>Render API URL</label><input id="api" value="https://food-inspector-scanner.onrender.com"><label>Product image</label><input id="image" type="file" accept="image/*"><button id="scan">Run inspection</button><div id="result" class="panel">No inspection yet.</div></main>
-<script>const result=document.querySelector('#result');document.querySelector('#scan').onclick=async()=>{const file=document.querySelector('#image').files[0];if(!file){result.textContent='Choose an image first.';return}result.textContent='Scanning...';const body=new FormData();body.append('image',file);try{const r=await fetch(document.querySelector('#api').value.replace(/\/$/,'')+'/scan',{method:'POST',body});const data=await r.json();result.textContent=JSON.stringify(data,null,2);result.className='panel '+String(data.status||'').toLowerCase()}catch(e){result.textContent='Request failed: '+e.message}};</script></body></html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Food Inspector Admin</title>
+	<style>
+		:root{--ink:#17212b;--panel:#263644;--paper:#f4f1de;--muted:#bdc7cf;--gold:#e9c46a;--fresh:#70c1b3;--bad:#e76f51}
+		*{box-sizing:border-box}body{margin:0;background:var(--ink);color:var(--paper);font:15px system-ui,sans-serif}
+	main{max-width:1050px;margin:auto;padding:42px 22px}.eyebrow{color:var(--gold);letter-spacing:2px;font-size:12px;font-weight:700}h1{font-size:38px;margin:8px 0 6px}p{color:var(--muted)}
+	.toolbar{display:grid;grid-template-columns:1fr auto auto;gap:10px;margin:28px 0}input,button{min-height:44px;border-radius:7px;border:1px solid #526574;padding:10px 13px;font:inherit}input{background:var(--panel);color:var(--paper)}button{background:var(--gold);border:0;color:var(--ink);font-weight:700;cursor:pointer}.secondary{background:var(--panel);color:var(--paper);border:1px solid #526574}
+	.summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:24px}.stat{background:var(--panel);padding:15px 18px;min-width:145px;border-top:3px solid var(--gold)}.stat b{display:block;font-size:25px}.stat span{color:var(--muted);font-size:12px}
+		.list{display:grid;gap:10px}.item{background:var(--panel);padding:17px;border-left:4px solid var(--gold);display:grid;grid-template-columns:130px 1fr auto;gap:18px;align-items:center}.item.expired{border-left-color:var(--bad)}.item.fresh{border-left-color:var(--fresh)}.status{font-weight:800;font-size:18px}.expired .status{color:var(--bad)}.fresh .status{color:var(--fresh)}.meta{color:var(--muted);font-size:13px}.barcode{color:var(--paper);margin-top:5px}.empty{background:var(--panel);padding:28px;color:var(--muted)}
+		@media(max-width:650px){.toolbar{grid-template-columns:1fr}.item{grid-template-columns:1fr;gap:7px}}
+	</style>
+</head>
+<body>
+	<main>
+	<div class="eyebrow">FOOD INSPECTOR</div><h1>Inspection desk</h1>
+	<p>Live review feed for mobile scans. Refreshes every 5 seconds.</p>
+	<div class="toolbar"><input id="api" value="https://food-scanner-9pz1.onrender.com"><button id="refresh">Refresh now</button><button id="download" class="secondary">Download report</button></div>
+		<div class="summary"><div class="stat"><b id="total">0</b><span>Total scans</span></div><div class="stat"><b id="bad">0</b><span>Needs attention</span></div><div class="stat"><b id="last">--</b><span>Last update</span></div></div>
+		<section id="list" class="list"><div class="empty">Loading inspection history...</div></section>
+	</main>
+	<script>
+		let records=[];
+		const api=()=>document.querySelector('#api').value.replace(/\/$/,'');
+		const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+		async function refresh(){
+			try{const response=await fetch(api()+'/inspections'); if(!response.ok) throw Error('API '+response.status); records=(await response.json()).items||[]; render();}
+			catch(error){document.querySelector('#list').innerHTML='<div class="empty">Could not load inspection history: '+escapeHtml(error.message)+'</div>';}
+		}
+		function render(){
+			const bad=records.filter(item=>item.status!=='FRESH'); document.querySelector('#total').textContent=records.length; document.querySelector('#bad').textContent=bad.length; document.querySelector('#last').textContent=records[0]?.created_at?new Date(records[0].created_at).toLocaleTimeString():'--';
+			document.querySelector('#list').innerHTML=records.length?records.map(item=>{const barcode=item.barcodes?.[0]?.value||'No barcode';return '<article class="item '+String(item.status).toLowerCase()+'"><div class="status">'+escapeHtml(item.status)+'</div><div><div class="meta">'+escapeHtml(new Date(item.created_at).toLocaleString())+' · '+escapeHtml(item.filename)+'</div><div class="barcode">'+escapeHtml(barcode)+'</div><div class="meta">Expiry: '+escapeHtml(item.expiry_date||'Not found')+'</div></div><button class="secondary" onclick="report(\''+encodeURIComponent(item.id)+'\')">View report</button></article>'}).join(''):'<div class="empty">No inspections yet. Scan a product from the mobile app.</div>';
+		}
+		async function report(id){const response=await fetch(api()+'/inspections/'+id+'/report');const data=await response.json();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const link=document.createElement('a');link.href=URL.createObjectURL(blob);link.download='inspection-'+id+'.json';link.click();URL.revokeObjectURL(link.href)}
+		document.querySelector('#refresh').onclick=refresh;document.querySelector('#download').onclick=()=>records.length&&report(encodeURIComponent(records[0].id));refresh();setInterval(refresh,5000);
+	</script>
+</body>
+</html>
