@@ -1,7 +1,7 @@
 __pycache__/
 *.pyc
-mobile/node_modules/
-mobile/.expo/
+mobile-scanner/node_modules/
+mobile-scanner/.expo/
 .env
 .venv/
 model/**/.cache/

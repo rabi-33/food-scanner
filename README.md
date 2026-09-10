@@ -3,7 +3,7 @@
 The project has three parts:
 
 - `api/`: FastAPI scanner for Render. PaddleOCR reads expiry text, OpenCV reads barcodes, and the date rules return `FRESH`, `EXPIRED`, or `NEEDS_REVIEW`.
-- `mobile/`: Expo React Native app for inspectors. Set `EXPO_PUBLIC_API_URL` to the Render API URL before starting it.
+- `mobile-scanner/`: Expo React Native app for inspectors. Set `EXPO_PUBLIC_API_URL` to the Render API URL before starting it.
 - `admin/`: lightweight Render static dashboard for image-based review.
 
 ## Local API
@@ -22,7 +22,7 @@ curl.exe -F "image=@data/exp_data_food/10.jfif" http://127.0.0.1:8000/scan
 
 ```powershell
 $env:EXPO_PUBLIC_API_URL = "http://192.168.1.10:8000"
-Set-Location mobile
+Set-Location mobile-scanner
 npm start
 ```
 
