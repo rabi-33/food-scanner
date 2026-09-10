@@ -103,6 +103,17 @@ def health():
     return {"status": "ok", "service": "food-inspector-scanner"}
 
 
+@app.get("/")
+def root():
+    return {
+        "service": "food-inspector-scanner",
+        "status": "online",
+        "health": "/health",
+        "api_docs": "/docs",
+        "scan_endpoint": "POST /scan",
+    }
+
+
 @app.post("/scan")
 async def scan(image: UploadFile = File(...)):
     content = await image.read()
