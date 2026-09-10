@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://food-scanner-9pz1.onrender.com';
 
 export default function App() {
   const [permission, requestPermission] = useCameraPermissions();
