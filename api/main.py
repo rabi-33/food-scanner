@@ -8,12 +8,14 @@ import cv2
 import numpy as np
 import httpx
 from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from paddleocr import PaddleOCR
 
 
 ROOT = Path(__file__).resolve().parents[1]
 MODEL_ROOT = ROOT / "model" / "ocr_models"
+ADMIN_PAGE = ROOT / "admin" / "index.html"
 DATE_PATTERN = re.compile(
     r"\b(?:\d{1,2}[/-])?\d{1,2}[/-]\d{2,4}\b|"
     r"\b\d{1,2}[/-]\d{4}\b|"
@@ -139,13 +141,7 @@ def health():
 
 @app.get("/")
 def root():
-    return {
-        "service": "food-inspector-scanner",
-        "status": "online",
-        "health": "/health",
-        "api_docs": "/docs",
-        "scan_endpoint": "POST /scan",
-    }
+    return FileResponse(ADMIN_PAGE)
 
 
 @app.post("/scan")
